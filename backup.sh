@@ -27,7 +27,7 @@ SLACK_ICON=${SLACK_ICON:-}
 backup() {
   mkdir -p $BACKUP_DIR
   date=$(date "+%Y-%m-%dT%H:%M:%SZ")
-  archive_name="backup-$date"
+  archive_name="backup-$date.gz"
 
   cmd_port_part=""
   if [[ ! -z $MONGODB_PORT ]]
