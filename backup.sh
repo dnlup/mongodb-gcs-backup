@@ -10,12 +10,14 @@ BACKUP_DIR=${BACKUP_DIR:-/tmp}
 BOTO_CONFIG_PATH=${BOTO_CONFIG_PATH:-/root/.boto}
 GCS_BUCKET=${GCS_BUCKET:-}
 GCS_KEY_FILE_PATH=${GCS_KEY_FILE_PATH:-}
-MONGODB_HOST=${MONGODB_HOST:-localhost}
-MONGODB_PORT=${MONGODB_PORT:-27017}
+MONGODB_HOST=${MONGODB_HOST:-localhost:27017}
+MONGODB_PORT=${MONGODB_PORT:-}
 MONGODB_DB=${MONGODB_DB:-}
 MONGODB_USER=${MONGODB_USER:-}
 MONGODB_PASSWORD=${MONGODB_PASSWORD:-}
+MONGODB_AUTHDB=${MONGODB_AUTHDB:-}
 MONGODB_OPLOG=${MONGODB_OPLOG:-}
+MONGODB_SSL=${MONGODB_SSL:-}
 SLACK_ALERTS=${SLACK_ALERTS:-}
 SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
 SLACK_CHANNEL=${SLACK_CHANNEL:-}
@@ -25,18 +27,30 @@ SLACK_ICON=${SLACK_ICON:-}
 backup() {
   mkdir -p $BACKUP_DIR
   date=$(date "+%Y-%m-%dT%H:%M:%SZ")
-  archive_name="backup-$date.tar.gz"
+  archive_name="backup-$date.gz"
+
+  cmd_port_part=""
+  if [[ ! -z $MONGODB_PORT ]]
+  then
+    cmd_port_part="--port $MONGODB_PORT"
+  fi
 
   cmd_auth_part=""
   if [[ ! -z $MONGODB_USER ]] && [[ ! -z $MONGODB_PASSWORD ]]
   then
-    cmd_auth_part="--username=\"$MONGODB_USER\" --password=\"$MONGODB_PASSWORD\""
+    cmd_auth_part="--username $MONGODB_USER --password $MONGODB_PASSWORD"
+  fi
+
+  cmd_auth_db_part=""
+  if [[ ! -z $MONGODB_AUTHDB ]]
+  then
+    cmd_auth_db_part="--authenticationDatabase $MONGODB_AUTHDB"
   fi
 
   cmd_db_part=""
   if [[ ! -z $MONGODB_DB ]]
   then
-    cmd_db_part="--db=\"$MONGODB_DB\""
+    cmd_db_part="--db $MONGODB_DB"
   fi
 
   cmd_oplog_part=""
@@ -45,8 +59,20 @@ backup() {
     cmd_oplog_part="--oplog"
   fi
 
-  cmd="mongodump --host=\"$MONGODB_HOST\" --port=\"$MONGODB_PORT\" $cmd_auth_part $cmd_db_part $cmd_oplog_part --gzip --archive=$BACKUP_DIR/$archive_name"
-  echo "starting to backup MongoDB host=$MONGODB_HOST port=$MONGODB_PORT"
+  cmd_ssl_part=""
+  if [[ $MONGODB_SSL = "true" ]]
+  then
+    cmd_ssl_part="--ssl"
+  fi
+
+  cmd="mongodump --host $MONGODB_HOST $cmd_ssl_part $cmd_auth_part $cmd_auth_db_part $cmd_db_part $cmd_oplog_part --gzip --archive=$BACKUP_DIR/$archive_name"
+
+  port_debug_substr=""
+  if [[ ! -z $MONGODB_PORT ]]
+  then
+    port_debug_substr="port $MONGODB_PORT"
+  fi
+  echo "starting to backup MongoDB host $MONGODB_HOST $port_debug_substr"
   eval "$cmd"
 }
 
